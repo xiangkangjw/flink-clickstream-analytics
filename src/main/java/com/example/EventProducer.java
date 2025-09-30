@@ -1,5 +1,6 @@
 package com.example;
 
+import com.example.config.JobConfig;
 import com.example.model.ClickEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -71,20 +72,30 @@ public class EventProducer {
     }
     
     public void startProducing(String topic, int eventsPerSecond, int durationSeconds) {
-        LOG.info("Starting to produce {} events per second for {} seconds to topic {}", 
-                 eventsPerSecond, durationSeconds, topic);
-        
-        int totalEvents = eventsPerSecond * durationSeconds;
+        boolean continuous = durationSeconds >= Integer.MAX_VALUE / 2;
+
+        if (continuous) {
+            LOG.info("Starting continuous event production at {} events per second to topic {}",
+                     eventsPerSecond, topic);
+        } else {
+            LOG.info("Starting to produce {} events per second for {} seconds to topic {}",
+                     eventsPerSecond, durationSeconds, topic);
+        }
+
         long intervalMs = 1000 / eventsPerSecond;
-        
-        for (int i = 0; i < totalEvents; i++) {
+        int eventCount = 0;
+        long startTime = System.currentTimeMillis();
+        long endTime = continuous ? Long.MAX_VALUE : startTime + (durationSeconds * 1000L);
+
+        while (System.currentTimeMillis() < endTime) {
             ClickEvent event = generateRandomEvent();
             sendEvent(event, topic);
-            
-            if ((i + 1) % 100 == 0) {
-                LOG.info("Sent {} events", i + 1);
+            eventCount++;
+
+            if (eventCount % 100 == 0) {
+                LOG.info("Sent {} events", eventCount);
             }
-            
+
             try {
                 TimeUnit.MILLISECONDS.sleep(intervalMs);
             } catch (InterruptedException e) {
@@ -93,8 +104,8 @@ public class EventProducer {
                 break;
             }
         }
-        
-        LOG.info("Finished producing {} events", totalEvents);
+
+        LOG.info("Finished producing {} events", eventCount);
     }
     
     public void close() {
@@ -102,13 +113,19 @@ public class EventProducer {
     }
     
     public static void main(String[] args) {
-        String bootstrapServers = args.length > 0 ? args[0] : "localhost:9092";
-        String topic = args.length > 1 ? args[1] : "click-stream";
-        int eventsPerSecond = args.length > 2 ? Integer.parseInt(args[2]) : 10;
-        int durationSeconds = args.length > 3 ? Integer.parseInt(args[3]) : 60;
-        
+        String bootstrapServers = args.length > 0 ? args[0] : JobConfig.KAFKA_BOOTSTRAP_SERVERS;
+        String topic = args.length > 1 ? args[1] : JobConfig.KAFKA_TOPIC;
+        int eventsPerSecond = args.length > 2 ? Integer.parseInt(args[2]) : JobConfig.EVENTS_PER_SECOND;
+        int durationSeconds = args.length > 3 ? Integer.parseInt(args[3]) : JobConfig.PRODUCER_DURATION_SECONDS;
+
         EventProducer producer = new EventProducer(bootstrapServers);
-        
+
+        // Add shutdown hook for graceful termination
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            LOG.info("Shutting down event producer gracefully...");
+            producer.close();
+        }));
+
         try {
             producer.startProducing(topic, eventsPerSecond, durationSeconds);
         } finally {

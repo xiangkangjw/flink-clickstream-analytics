@@ -18,6 +18,10 @@ public class JobConfig {
     // Checkpointing
     public static final long CHECKPOINT_INTERVAL_MS = 10000;
 
+    // Event Producer configuration
+    public static final int EVENTS_PER_SECOND = 10;
+    public static final int PRODUCER_DURATION_SECONDS = Integer.MAX_VALUE; // Continuous production
+
     private JobConfig() {
         // Utility class
     }

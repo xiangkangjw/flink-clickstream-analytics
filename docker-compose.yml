@@ -26,6 +26,9 @@ services:
       - "8081:8081"
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.scheduler: adaptive
     volumes:
       - ./target:/opt/flink/usrlib
 
@@ -37,6 +40,7 @@ services:
     command: taskmanager
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=8
     volumes:
       - ./target:/opt/flink/usrlib
 
@@ -50,6 +54,17 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     depends_on:
       - kafka
+
+  event-producer:
+    image: eclipse-temurin:17-jre
+    container_name: event-producer
+    command: >
+      sh -c "sleep 10 && java -cp /app/flink-clickstream-1.0-SNAPSHOT.jar com.example.EventProducer"
+    volumes:
+      - ./target:/app
+    depends_on:
+      - kafka
+    restart: unless-stopped
 
 volumes:
   kafka-data:
