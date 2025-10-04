@@ -12,7 +12,7 @@ public class JobConfig {
     public static final int PARALLELISM = 6;
 
     // Window configuration
-    public static final long WINDOW_SIZE_MINUTES = 5;
+    public static final long WINDOW_SIZE_MINUTES = 2;
     public static final long WINDOW_SLIDE_SECONDS = 10;
 
     // Checkpointing
